@@ -1,0 +1,5 @@
+aiocoap>=0.4.17
+influxdb-client>=1.50.0
+flask>=3.1.2
+requests>=2.32.3
+python-dotenv>=1.0.0

@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoAP Environmental Monitoring Dashboard | Kalamassery</title>
+    <!-- Modern Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- FontAwesome & Chart.js -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="app-wrapper">
+        <!-- Top Navigation Header -->
+        <header class="navbar">
+            <div class="nav-brand">
+                <div class="logo-icon"><i class="fa-solid fa-satellite-dish"></i></div>
+                <div>
+                    <h1>CoAP EnvMonitor</h1>
+                    <p class="subtitle">Location: Kalamassery (Lat: 10.0159, Lon: 76.3419)</p>
+                </div>
+            </div>
+            
+            <div class="nav-controls">
+                <div class="status-pill" id="influxStatusPill" onclick="openInfluxModal()">
+                    <span class="status-dot warning"></span>
+                    <span id="influxStatusText">Checking InfluxDB...</span>
+                </div>
+                
+                <div class="auto-refresh-group">
+                    <label for="autoRefreshSelect"><i class="fa-solid fa-arrows-rotate"></i> Auto Sync:</label>
+                    <select id="autoRefreshSelect" onchange="toggleAutoRefresh(this.value)">
+                        <option value="0">Manual Only</option>
+                        <option value="10">Every 10s</option>
+                        <option value="30">Every 30s</option>
+                        <option value="60">Every 60s</option>
+                    </select>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="fetchWeatherOnly()">
+                        <i class="fa-solid fa-cloud-sun"></i> Weather
+                    </button>
+                    <button class="btn btn-secondary" onclick="fetchAirQualityOnly()">
+                        <i class="fa-solid fa-wind"></i> Air Quality
+                    </button>
+                    <button class="btn btn-primary" id="btnSyncAll" onclick="fetchAllData()">
+                        <i class="fa-solid fa-bolt"></i> Fetch All via CoAP
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Layout -->
+        <main class="dashboard-body">
+            
+            <!-- Toast Notification Banner -->
+            <div id="toastContainer" class="toast-container"></div>
+
+            <!-- Header Info Banner -->
+            <div class="info-banner">
+                <div class="banner-item">
+                    <i class="fa-solid fa-location-dot"></i>
+                    <span><strong>Location:</strong> Kalamassery, Kerala</span>
+                </div>
+                <div class="banner-item">
+                    <i class="fa-solid fa-network-wired"></i>
+                    <span><strong>Protocol:</strong> Constrained Application Protocol (CoAP)</span>
+                </div>
+                <div class="banner-item">
+                    <i class="fa-solid fa-clock"></i>
+                    <span><strong>Last Sync:</strong> <span id="lastSyncTime">Never</span></span>
+                </div>
+                <div class="banner-item">
+                    <i class="fa-solid fa-database"></i>
+                    <span><strong>Storage:</strong> InfluxDB Cloud</span>
+                </div>
+            </div>
+
+            <!-- Weather Metrics Section -->
+            <section class="section-container">
+                <div class="section-title">
+                    <h2><i class="fa-solid fa-temperature-three-quarters text-cyan"></i> Weather Parameters</h2>
+                    <span class="endpoint-badge">CoAP Resource: /weather</span>
+                </div>
+
+                <div class="cards-grid">
+                    <!-- Temperature Card -->
+                    <div class="metric-card weather-card">
+                        <div class="card-header">
+                            <span class="metric-title">Temperature</span>
+                            <div class="card-icon cyan"><i class="fa-solid fa-temperature-high"></i></div>
+                        </div>
+                        <div class="metric-value" id="valTemperature">-- <span class="unit">°C</span></div>
+                        <div class="card-footer">
+                            <span class="trend-text"><i class="fa-solid fa-microchip"></i> Open-Meteo Current API</span>
+                        </div>
+                    </div>
+
+                    <!-- Humidity Card -->
+                    <div class="metric-card weather-card">
+                        <div class="card-header">
+                            <span class="metric-title">Relative Humidity</span>
+                            <div class="card-icon blue"><i class="fa-solid fa-droplet"></i></div>
+                        </div>
+                        <div class="metric-value" id="valHumidity">-- <span class="unit">%</span></div>
+                        <div class="card-footer">
+                            <span class="trend-text"><i class="fa-solid fa-water"></i> Atmospheric Moisture</span>
+                        </div>
+                    </div>
+
+                    <!-- Wind Speed Card -->
+                    <div class="metric-card weather-card">
+                        <div class="card-header">
+                            <span class="metric-title">Wind Speed</span>
+                            <div class="card-icon teal"><i class="fa-solid fa-wind"></i></div>
+                        </div>
+                        <div class="metric-value" id="valWindSpeed">-- <span class="unit">km/h</span></div>
+                        <div class="card-footer">
+                            <span class="trend-text"><i class="fa-solid fa-gauge"></i> 10m Elevation Measurement</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Air Quality Section -->
+            <section class="section-container">
+                <div class="section-title">
+                    <h2><i class="fa-solid fa-smog text-emerald"></i> Air Quality Metrics</h2>
+                    <span class="endpoint-badge">CoAP Resource: /airquality</span>
+                </div>
+
+                <div class="cards-grid air-quality-grid">
+                    <!-- European AQI Card -->
+                    <div class="metric-card aq-card featured">
+                        <div class="card-header">
+                            <span class="metric-title">European AQI</span>
+                            <div class="card-icon green"><i class="fa-solid fa-shield-heart"></i></div>
+                        </div>
+                        <div class="aqi-badge-container">
+                            <span class="aqi-badge aqi-unknown" id="valAqiBadge">--</span>
+                            <div class="metric-value" id="valAqi">--</div>
+                        </div>
+                        <div class="card-footer">
+                            <span class="trend-text" id="valAqiDesc">Index score (1-100+)</span>
+                        </div>
+                    </div>
+
+                    <!-- PM10 Card -->
+                    <div class="metric-card aq-card">
+                        <div class="card-header">
+                            <span class="metric-title">PM10</span>
+                            <div class="card-icon purple"><i class="fa-solid fa-dust"></i></div>
+                        </div>
+                        <div class="metric-value" id="valPm10">-- <span class="unit">μg/m³</span></div>
+                        <div class="card-footer">
+                            <span class="trend-text">Coarse Particulate Matter</span>
+                        </div>
+                    </div>
+
+                    <!-- PM2.5 Card -->
+                    <div class="metric-card aq-card">
+                        <div class="card-header">
+                            <span class="metric-title">PM2.5</span>
+                            <div class="card-icon orange"><i class="fa-solid fa-lungs"></i></div>
+                        </div>
+                        <div class="metric-value" id="valPm25">-- <span class="unit">μg/m³</span></div>
+                        <div class="card-footer">
+                            <span class="trend-text">Fine Particulate Matter</span>
+                        </div>
+                    </div>
+
+                    <!-- CO Card -->
+                    <div class="metric-card aq-card">
+                        <div class="card-header">
+                            <span class="metric-title">Carbon Monoxide (CO)</span>
+                            <div class="card-icon red"><i class="fa-solid fa-smog"></i></div>
+                        </div>
+                        <div class="metric-value" id="valCo">-- <span class="unit">μg/m³</span></div>
+                        <div class="card-footer">
+                            <span class="trend-text">CO Atmospheric Level</span>
+                        </div>
+                    </div>
+
+                    <!-- NO2 Card -->
+                    <div class="metric-card aq-card">
+                        <div class="card-header">
+                            <span class="metric-title">Nitrogen Dioxide (NO₂)</span>
+                            <div class="card-icon yellow"><i class="fa-solid fa-cloud-meatball"></i></div>
+                        </div>
+                        <div class="metric-value" id="valNo2">-- <span class="unit">μg/m³</span></div>
+                        <div class="card-footer">
+                            <span class="trend-text">NO₂ Concentration</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Charts Section -->
+            <section class="section-container charts-grid">
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3><i class="fa-solid fa-chart-line text-cyan"></i> Weather Metrics History</h3>
+                        <span class="chart-subtitle">Real-time CoAP fetch recordings</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="weatherChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3><i class="fa-solid fa-chart-area text-emerald"></i> Air Pollutant Trends</h3>
+                        <span class="chart-subtitle">PM2.5, PM10, CO, NO₂ (μg/m³)</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="airQualityChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Transaction History Log -->
+            <section class="section-container">
+                <div class="section-title">
+                    <h2><i class="fa-solid fa-list-check"></i> CoAP Transaction & InfluxDB Log</h2>
+                    <button class="btn-sm btn-outline" onclick="loadHistoryTable()">
+                        <i class="fa-solid fa-rotate-right"></i> Refresh Table
+                    </button>
+                </div>
+                
+                <div class="table-card">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Resource</th>
+                                <th>Key Metrics Payload</th>
+                                <th>InfluxDB Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody">
+                            <tr>
+                                <td colspan="4" class="empty-msg">No CoAP data fetched yet. Click "Fetch All via CoAP" to retrieve live metrics.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- InfluxDB Settings Modal -->
+    <div class="modal-overlay" id="influxModal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-database"></i> InfluxDB Cloud Configuration</h3>
+                <button class="modal-close" onclick="closeInfluxModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-desc">Configure your InfluxDB Cloud details below to write environmental points live from the CoAP dashboard.</p>
+                
+                <div class="form-group">
+                    <label>InfluxDB URL:</label>
+                    <input type="text" id="cfgInfluxUrl" placeholder="https://us-east-1-1.aws.cloud2.influxdata.com">
+                </div>
+                
+                <div class="form-group">
+                    <label>API Token:</label>
+                    <input type="password" id="cfgInfluxToken" placeholder="Your InfluxDB API Token">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Organization:</label>
+                        <input type="text" id="cfgInfluxOrg" placeholder="Your Org Name / Email">
+                    </div>
+                    <div class="form-group">
+                        <label>Bucket Name:</label>
+                        <input type="text" id="cfgInfluxBucket" placeholder="coap_environmental_data">
+                    </div>
+                </div>
+
+                <div class="connection-status-box" id="modalConnStatus">
+                    <span class="status-label">Current Status:</span>
+                    <span id="modalConnMessage">Checking...</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeInfluxModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveInfluxConfig()">Save Configuration</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>
