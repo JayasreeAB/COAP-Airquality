@@ -4,7 +4,7 @@ An end-to-end CoAP (Constrained Application Protocol) Environmental Monitoring S
 
 ---
 
-## 🌟 Key Features
+##  Key Features
 
 1. **On-Demand CoAP Server (`coap_server.py`)**:
    - Exposes two CoAP resources:
@@ -37,7 +37,7 @@ An end-to-end CoAP (Constrained Application Protocol) Environmental Monitoring S
 
 ---
 
-## 📁 Repository Structure
+##  Repository Structure
 
 ```
 coap airquality/
@@ -61,7 +61,7 @@ coap airquality/
 
 ---
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### 1. Installation
 
@@ -86,7 +86,7 @@ INFLUXDB_BUCKET=coap_environmental_data
 
 ---
 
-## 🏃 Running the System
+##  Running the System
 
 ### Step 1: Start the CoAP Server
 Open a terminal and run:
@@ -125,7 +125,7 @@ Open your web browser and navigate to:
 
 ---
 
-## 🧪 Running Automated Tests
+##  Running Automated Tests
 
 To execute the unit test suite and verify API endpoints and InfluxDB point building:
 
@@ -135,7 +135,7 @@ python test_coap_system.py
 
 ---
 
-## 📡 API Reference & External Sources
+##  API Reference & External Sources
 
 - **Weather API (Kalamassery Location)**:
   `https://api.open-meteo.com/v1/forecast?latitude=10.0159&longitude=76.3419&current=temperature_2m,relative_humidity_2m,wind_speed_10m`
